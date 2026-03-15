@@ -34,12 +34,15 @@ import {
 
 // --- Firebase Configuration ---
 // __firebase_config / __app_id / __initial_auth_token are injected via vite.config.js define
+// In Vercel: set FIREBASE_CONFIG environment variable with your Firebase project config JSON
 const firebaseConfig = (() => {
   try { return JSON.parse(__firebase_config); } catch { return {}; }
 })();
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
+const isFirebaseConfigured = !!firebaseConfig.apiKey;
+
+const app = isFirebaseConfigured ? initializeApp(firebaseConfig) : null;
+const auth = isFirebaseConfigured ? getAuth(app) : null;
+const db = isFirebaseConfigured ? getFirestore(app) : null;
 const appId = __app_id || 'invoice-manager-001';
 
 // --- Constants ---
@@ -47,7 +50,53 @@ const API_KEY = ""; // System provides this
 const MODEL_NAME = "gemini-2.5-flash-preview-09-2025";
 const STATUS_OPTIONS = ['未処理', '処理中', '承認待ち', '完了'];
 
+function FirebaseSetupGuide() {
+  return (
+    <div style={{minHeight:'100vh',background:'#f0f4f8',display:'flex',alignItems:'center',justifyContent:'center',padding:'24px',fontFamily:'sans-serif'}}>
+      <div style={{background:'#fff',borderRadius:'16px',padding:'40px',maxWidth:'560px',width:'100%',boxShadow:'0 4px 24px rgba(0,0,0,0.08)'}}>
+        <div style={{fontSize:'48px',textAlign:'center',marginBottom:'16px'}}>🔧</div>
+        <h1 style={{fontSize:'22px',fontWeight:'800',color:'#0f172a',textAlign:'center',marginBottom:'8px'}}>Firebase 設定が必要です</h1>
+        <p style={{color:'#64748b',fontSize:'14px',textAlign:'center',marginBottom:'28px',lineHeight:'1.6'}}>
+          このアプリを動作させるには、Vercel の環境変数に Firebase プロジェクトの設定を追加してください。
+        </p>
+
+        <div style={{background:'#f8fafc',borderRadius:'10px',padding:'20px',marginBottom:'20px',border:'1px solid #e2e8f0'}}>
+          <div style={{fontSize:'13px',fontWeight:'700',color:'#374151',marginBottom:'12px'}}>📋 設定手順</div>
+          {[
+            ['1', 'Vercel ダッシュボード → プロジェクト → Settings → Environment Variables を開く'],
+            ['2', '以下の変数名と値を追加する'],
+            ['3', 'Redeploy（再デプロイ）を実行する'],
+          ].map(([num, text]) => (
+            <div key={num} style={{display:'flex',gap:'10px',marginBottom:'10px',alignItems:'flex-start'}}>
+              <div style={{width:'22px',height:'22px',borderRadius:'50%',background:'#3b82f6',color:'#fff',fontSize:'12px',fontWeight:'700',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,marginTop:'1px'}}>{num}</div>
+              <div style={{fontSize:'13px',color:'#374151',lineHeight:'1.5'}}>{text}</div>
+            </div>
+          ))}
+        </div>
+
+        <div style={{background:'#1e293b',borderRadius:'10px',padding:'16px',marginBottom:'20px'}}>
+          <div style={{fontSize:'11px',color:'#94a3b8',marginBottom:'8px',fontWeight:'600'}}>環境変数</div>
+          <div style={{fontFamily:'monospace',fontSize:'12px',color:'#e2e8f0',lineHeight:'1.8'}}>
+            <div><span style={{color:'#60a5fa'}}>FIREBASE_CONFIG</span> = {'{'}"apiKey":"...",</div>
+            <div style={{paddingLeft:'16px'}}>"authDomain":"...",</div>
+            <div style={{paddingLeft:'16px'}}>"projectId":"...",</div>
+            <div style={{paddingLeft:'16px'}}>"storageBucket":"...",</div>
+            <div style={{paddingLeft:'16px'}}>"messagingSenderId":"...",</div>
+            <div style={{paddingLeft:'16px'}}>"appId":"..."{'}'}</div>
+          </div>
+        </div>
+
+        <div style={{background:'#eff6ff',borderRadius:'10px',padding:'14px',border:'1px solid #bfdbfe',fontSize:'13px',color:'#1e40af',lineHeight:'1.6'}}>
+          💡 Firebase の設定値は <strong>Firebase Console</strong> → プロジェクト設定 → マイアプリ → SDK の設定と構成 から取得できます。
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
+  if (!isFirebaseConfigured) return <FirebaseSetupGuide />;
+
   const [user, setUser] = useState(null);
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(false);
