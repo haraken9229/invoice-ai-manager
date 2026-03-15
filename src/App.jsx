@@ -124,32 +124,17 @@ export default function App() {
   const [filterDue,    setFilterDue]    = useState('All');
   const fileInputRef = useRef(null);
 
-  // ── 初期取得 & リアルタイム購読 ──
-  useEffect(() => {
-    // 初期データ取得
-    supabase
+  // ── データ取得 ──
+  const fetchInvoices = async () => {
+    const { data, error } = await supabase
       .from('invoices')
       .select('*')
-      .order('created_at', { ascending: false })
-      .then(({ data, error }) => {
-        if (error) console.error(error);
-        else setInvoices(data || []);
-      });
+      .order('created_at', { ascending: false });
+    if (error) console.error(error);
+    else setInvoices(data || []);
+  };
 
-    // リアルタイム
-    const channel = supabase
-      .channel('invoices-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'invoices' }, () => {
-        supabase
-          .from('invoices')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .then(({ data }) => setInvoices(data || []));
-      })
-      .subscribe();
-
-    return () => supabase.removeChannel(channel);
-  }, []);
+  useEffect(() => { fetchInvoices(); }, []);
 
   // ── AI 抽出 ──
   const extractInvoiceData = async (base64Data) => {
@@ -208,6 +193,7 @@ export default function App() {
           file_name: file.name,
         });
         if (error) console.error(error);
+        else await fetchInvoices();
         setIsUploading(false);
       };
       reader.readAsDataURL(file);
@@ -220,11 +206,13 @@ export default function App() {
   const updateField = async (id, fields) => {
     const { error } = await supabase.from('invoices').update(fields).eq('id', id);
     if (error) console.error(error);
+    else await fetchInvoices();
   };
 
   const deleteInvoice = async (id) => {
     const { error } = await supabase.from('invoices').delete().eq('id', id);
     if (error) console.error(error);
+    else await fetchInvoices();
   };
 
   // ── フィルタリング ──
