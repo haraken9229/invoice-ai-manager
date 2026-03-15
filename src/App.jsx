@@ -137,20 +137,31 @@ export default function App() {
   useEffect(() => { fetchInvoices(); }, []);
 
   // ── AI 抽出 ──
-  const extractInvoiceData = async (base64Data) => {
+  const extractInvoiceData = async (base64Data, mimeType) => {
     if (!GEMINI_KEY) return { amount: 0, media: 'API KEY 未設定', due_date: '', description: 'VITE_GEMINI_API_KEY を設定してください' };
+
+    const today = new Date();
+    const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, today.getDate())
+      .toISOString().split('T')[0];
 
     const payload = {
       contents: [{ role: 'user', parts: [
-        { text: 'この請求書から情報を抽出してください。' },
-        { inlineData: { mimeType: 'image/png', data: base64Data } },
+        { text: 'この請求書から情報を正確に抽出してください。' },
+        { inlineData: { mimeType, data: base64Data } },
       ]}],
       systemInstruction: { parts: [{ text: `
-        あなたは請求書解析の専門家です。以下のJSONキーで情報を返してください。
-        - amount: 数値のみ（記号・カンマ不可）
-        - media: 媒体名や発行元
-        - due_date: YYYY-MM-DD形式（不明なら1ヶ月後）
-        - description: 備考や主な項目
+        あなたは日本語請求書の解析専門家です。
+        請求書を注意深く読み、以下のJSONキーで情報を返してください。
+
+        - amount: 請求金額の数値のみ（税込がある場合は税込金額。¥・円・カンマ・スペース不可。例: 1320000）
+        - media: 請求元の会社名または媒体名（正式名称で）
+        - due_date: 支払期限をYYYY-MM-DD形式で（例: 2026-04-30）。記載がない場合は${nextMonth}
+        - description: 請求内容・品目・サービス名を簡潔に（50文字以内）
+
+        注意:
+        - 金額は必ず数値のみ（文字列不可）
+        - 日付はYYYY-MM-DD形式を厳守
+        - 情報が読み取れない場合は空文字列を返す
       `}]},
       generationConfig: { responseMimeType: 'application/json' },
     };
@@ -163,6 +174,7 @@ export default function App() {
           { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }
         );
         const result = await res.json();
+        if (result.error) throw new Error(result.error.message);
         return JSON.parse(result.candidates[0].content.parts[0].text);
       } catch (err) {
         if (i === 4) throw err;
@@ -178,11 +190,21 @@ export default function App() {
     if (!file) return;
     e.target.value = '';
     setIsUploading(true);
+
+    // ファイルの mimeType を正しく判定
+    const mimeType = file.type === 'application/pdf'
+      ? 'application/pdf'
+      : file.type.startsWith('image/')
+      ? file.type
+      : 'image/png';
+
     try {
       const reader = new FileReader();
       reader.onloadend = async () => {
         let extracted = { amount: 0, media: file.name, due_date: '', description: '' };
-        try { extracted = await extractInvoiceData(reader.result.split(',')[1]); } catch {}
+        try { extracted = await extractInvoiceData(reader.result.split(',')[1], mimeType); } catch (err) {
+          console.error('AI抽出エラー:', err);
+        }
         const { error } = await supabase.from('invoices').insert({
           amount:      Number(extracted.amount) || 0,
           media:       extracted.media      || file.name,
