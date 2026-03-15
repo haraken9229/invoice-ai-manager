@@ -21,7 +21,7 @@ const supabase = SUPABASE_URL && SUPABASE_ANON
 
 // --- Gemini ---
 const GEMINI_KEY  = import.meta.env.VITE_GEMINI_API_KEY || '';
-const MODEL_NAME  = 'gemini-2.5-flash-preview-05-20';
+const MODEL_NAME  = 'gemini-2.0-flash';
 const STATUS_OPTIONS = ['未処理', '処理中', '承認待ち', '完了'];
 
 // --- Date helpers ---
