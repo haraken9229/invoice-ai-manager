@@ -28,13 +28,15 @@ import {
 } from 'lucide-react';
 
 // --- Firebase Configuration ---
-const firebaseConfig = typeof __firebase_config !== 'undefined'
-  ? JSON.parse(__firebase_config)
-  : {};
+// __firebase_config / __app_id / __initial_auth_token are injected via vite.config.js define
+// In Canvas/Firebase Studio they are provided at runtime; in Vercel set FIREBASE_CONFIG env var
+const firebaseConfig = (() => {
+  try { return JSON.parse(__firebase_config); } catch { return {}; }
+})();
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'invoice-manager-001';
+const appId = __app_id || 'invoice-manager-001';
 
 // --- Constants ---
 const API_KEY = '';
@@ -123,7 +125,7 @@ export default function App() {
   useEffect(() => {
     const initAuth = async () => {
       try {
-        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+        if (__initial_auth_token) {
           await signInWithCustomToken(auth, __initial_auth_token);
         } else {
           await signInAnonymously(auth);
